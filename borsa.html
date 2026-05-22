@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>BIST Hisse Arama</title>
+  <meta name="description" content="Borsa İstanbul hisse senetleri arama uygulaması" />
+
+  <!-- PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BIST" />
+  <meta name="theme-color" content="#0a0f1e" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #0a0f1e;
+      --surface: #111827;
+      --surface2: #1a2236;
+      --border: rgba(255,255,255,0.07);
+      --accent: #e8ff47;
+      --accent2: #47c8ff;
+      --text: #f0f4ff;
+      --text-muted: #6b7a99;
+      --red: #ff4757;
+      --card-hover: #1e2d47;
+      --radius: 16px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100dvh;
+      min-height: -webkit-fill-available;
+      overflow-x: hidden;
+    }
+
+    /* Animated background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(72,200,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(72,200,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Glow orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.25;
+    }
+    .orb-1 {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, #e8ff47 0%, transparent 70%);
+      top: -150px; right: -100px;
+      animation: drift1 12s ease-in-out infinite;
+    }
+    .orb-2 {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, #47c8ff 0%, transparent 70%);
+      bottom: 10%; left: -80px;
+      animation: drift2 15s ease-in-out infinite;
+    }
+
+    @keyframes drift1 {
+      0%, 100% { transform: translate(0,0); }
+      50% { transform: translate(-30px, 40px); }
+    }
+    @keyframes drift2 {
+      0%, 100% { transform: translate(0,0); }
+      50% { transform: translate(20px, -30px); }
+    }
+
+    /* App Container */
+    .app {
+      position: relative;
+      z-index: 1;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
+    }
+
+    /* Header */
+    .header {
+      padding: 20px 20px 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: linear-gradient(to bottom, var(--bg) 70%, transparent);
+      padding-top: max(20px, env(safe-area-inset-top));
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-mark {
+      width: 40px;
+      height: 40px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .logo-mark svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1;
+    }
+
+    .logo-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+
+    .logo-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: 'DM Mono', monospace;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .header-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--accent);
+      background: rgba(232,255,71,0.1);
+      border: 1px solid rgba(232,255,71,0.2);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    /* Search */
+    .search-wrap {
+      position: relative;
+      margin-bottom: 4px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      transition: color 0.2s;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 50px 14px 48px;
+      font-size: 16px;
+      font-family: 'Syne', sans-serif;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      -webkit-appearance: none;
+    }
+
+    .search-input::placeholder { color: var(--text-muted); }
+    .search-input:focus {
+      border-color: rgba(232,255,71,0.4);
+      box-shadow: 0 0 0 3px rgba(232,255,71,0.08);
+    }
+    .search-input:focus + .search-icon { color: var(--accent); }
+    .search-wrap:focus-within .search-icon { color: var(--accent); }
+
+    .clear-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--surface2);
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s, background 0.2s;
+      pointer-events: none;
+    }
+
+    .clear-btn.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .clear-btn:hover { background: var(--card-hover); color: var(--text); }
+
+    /* Filter tabs */
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      padding: 12px 20px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .filter-bar::-webkit-scrollbar { display: none; }
+
+    .filter-btn {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'Syne', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .filter-btn:hover { border-color: rgba(232,255,71,0.3); color: var(--text); }
+
+    .filter-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #0a0f1e;
+    }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex;
+      gap: 0;
+      margin: 0 20px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .stat {
+      flex: 1;
+      padding: 10px 12px;
+      text-align: center;
+      position: relative;
+    }
+
+    .stat + .stat::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 20%; bottom: 20%;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .stat-val {
+      font-family: 'DM Mono', monospace;
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--accent);
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+
+    /* Results info */
+    .results-info {
+      padding: 0 20px 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'DM Mono', monospace;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .results-count {
+      color: var(--accent2);
+    }
+
+    /* List */
+    .list {
+      padding: 0 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      position: relative;
+      overflow: hidden;
+      animation: slideIn 0.3s ease both;
+      text-decoration: none;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(232,255,71,0.03) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .card:hover, .card:active {
+      border-color: rgba(232,255,71,0.25);
+      background: var(--card-hover);
+      transform: translateY(-1px);
+    }
+
+    .card:hover::before { opacity: 1; }
+
+    .card-rank {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      width: 24px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .card-ticker-wrap {
+      flex-shrink: 0;
+    }
+
+    .card-ticker {
+      display: inline-block;
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+      color: #0a0f1e;
+      background: var(--accent);
+      padding: 4px 9px;
+      border-radius: 7px;
+      letter-spacing: 0.5px;
+      min-width: 58px;
+      text-align: center;
+    }
+
+    .card-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .card-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+
+    .card-name mark {
+      background: rgba(232,255,71,0.2);
+      color: var(--accent);
+      border-radius: 3px;
+      padding: 0 2px;
+    }
+
+    .card-ticker-name mark {
+      background: rgba(232,255,71,0.2);
+      color: var(--accent);
+      border-radius: 3px;
+    }
+
+    .card-sector {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 3px;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .card-arrow {
+      color: var(--text-muted);
+      flex-shrink: 0;
+      transition: transform 0.2s, color 0.2s;
+    }
+
+    .card:hover .card-arrow {
+      transform: translateX(3px);
+      color: var(--accent);
+    }
+
+    /* Empty state */
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.4;
+    }
+
+    .empty-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .empty-text {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* Bottom safe area */
+    .bottom-pad {
+      height: max(24px, env(safe-area-inset-bottom));
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Highlight */
+    .highlight { color: var(--accent); }
+
+    /* Sector tag colors */
+    .sector-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-family: 'DM Mono', monospace;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    .sector-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Skeleton loader */
+    .skeleton {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .skel-block {
+      background: var(--surface2);
+      border-radius: 6px;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    /* Header sticky blur */
+    .header-blur {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 120px;
+      background: linear-gradient(to bottom, var(--bg) 0%, transparent 100%);
+      pointer-events: none;
+      z-index: 99;
+    }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="app">
+  <header class="header">
+    <div class="header-top">
+      <div class="logo">
+        <div class="logo-mark">
+          <!-- Candlestick chart icon -->
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="6" width="3" height="12" rx="1" fill="#0a0f1e"/>
+            <rect x="5" y="3" width="1" height="3" fill="#0a0f1e"/>
+            <rect x="5" y="18" width="1" height="3" fill="#0a0f1e"/>
+            <rect x="10" y="9" width="3" height="8" rx="1" fill="#0a0f1e"/>
+            <rect x="11" y="6" width="1" height="3" fill="#0a0f1e"/>
+            <rect x="11" y="17" width="1" height="3" fill="#0a0f1e"/>
+            <rect x="16" y="5" width="3" height="10" rx="1" fill="#0a0f1e"/>
+            <rect x="17" y="2" width="1" height="3" fill="#0a0f1e"/>
+            <rect x="17" y="15" width="1" height="3" fill="#0a0f1e"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <span class="logo-title">BIST Hisse</span>
+          <span class="logo-sub">Borsa İstanbul</span>
+        </div>
+      </div>
+      <div class="header-badge" id="totalBadge">237 Hisse</div>
+    </div>
+
+    <div class="search-wrap">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input
+        type="search"
+        class="search-input"
+        id="searchInput"
+        placeholder="Hisse kodu veya şirket ara…"
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+      />
+      <button class="clear-btn" id="clearBtn" aria-label="Temizle">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M18 6 6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="filter-bar" id="filterBar">
+    <button class="filter-btn active" data-filter="all">Tümü</button>
+    <button class="filter-btn" data-filter="enerji">Enerji</button>
+    <button class="filter-btn" data-filter="teknoloji">Teknoloji</button>
+    <button class="filter-btn" data-filter="gıda">Gıda</button>
+    <button class="filter-btn" data-filter="gayrimenkul">GYO</button>
+    <button class="filter-btn" data-filter="çelik">Çelik</button>
+    <button class="filter-btn" data-filter="çimento">Çimento</button>
+    <button class="filter-btn" data-filter="holding">Holding</button>
+    <button class="filter-btn" data-filter="tekstil">Tekstil</button>
+    <button class="filter-btn" data-filter="kimya">Kimya</button>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-val" id="statTotal">237</div>
+      <div class="stat-label">Toplam</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="statShowing">237</div>
+      <div class="stat-label">Gösterilen</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="statCategory">—</div>
+      <div class="stat-label">Kategori</div>
+    </div>
+  </div>
+
+  <div class="results-info">
+    <span id="resultsText">Tüm hisseler listeleniyor</span>
+    <span class="results-count" id="resultsCount">237 sonuç</span>
+  </div>
+
+  <main class="list" id="stockList"></main>
+
+  <div class="bottom-pad"></div>
+</div>
+
+<script>
+const STOCKS = [
+  {id:1,ticker:"AAGYO",name:"Ağaoğlu Avrasya Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:2,ticker:"ACSEL",name:"Acıselsan Acıpayam Selüloz Sanayi Ve Ticaret A.Ş.",sector:"kimya"},
+  {id:3,ticker:"AHGAZ",name:"Ahlatcı Doğal Gaz Dağıtım Enerji ve Yatırım A.Ş.",sector:"enerji"},
+  {id:4,ticker:"AHSGY",name:"Ahes Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:5,ticker:"AKFYE",name:"Akfen Yenilenebilir Enerji A.Ş.",sector:"enerji"},
+  {id:6,ticker:"AKHAN",name:"Akhan Un Fabrikası ve Tarım Ürünleri Gıda Sanayi Ticaret A.Ş.",sector:"gıda"},
+  {id:7,ticker:"ALBRK",name:"Albaraka Türk Katılım Bankası A.Ş.",sector:"finans"},
+  {id:8,ticker:"ALCTL",name:"Alcatel Lucent Teletaş Telekomünikasyon A.Ş.",sector:"teknoloji"},
+  {id:9,ticker:"ALFAS",name:"Alfa Solar Enerji Sanayi ve Ticaret A.Ş.",sector:"enerji"},
+  {id:10,ticker:"ALKA",name:"Alkim Kağıt Sanayi Ve Ticaret A.Ş.",sector:"ambalaj"},
+  {id:11,ticker:"ALKIM",name:"Alkim Alkali Kimya A.Ş.",sector:"kimya"},
+  {id:12,ticker:"ALKLC",name:"Altınkılıç Gıda Ve Süt Sanayi Ticaret A.Ş.",sector:"gıda"},
+  {id:13,ticker:"ALTNY",name:"Altınay Savunma Teknolojileri A.Ş.",sector:"savunma"},
+  {id:14,ticker:"ALVES",name:"Alves Kablo Sanayi Ve Ticaret A.Ş.",sector:"metal"},
+  {id:15,ticker:"ANGEN",name:"Anatolia Tanı Ve Biyoteknoloji Ürünleri Araştırma Geliştirme Sanayi Ve Ticaret A.Ş.",sector:"sağlık"},
+  {id:16,ticker:"ARASE",name:"Doğu Aras Enerji Yatırımları A.Ş.",sector:"enerji"},
+  {id:17,ticker:"ARDYZ",name:"Ard Grup Bilişim Teknolojileri A.Ş.",sector:"teknoloji"},
+  {id:18,ticker:"ARENA",name:"Arena Bilgisayar Sanayi ve Ticaret A.Ş.",sector:"teknoloji"},
+  {id:19,ticker:"ARFYE",name:"Arf Bio Yenilenebilir Enerji Üretim A.Ş.",sector:"enerji"},
+  {id:20,ticker:"ASELS",name:"Aselsan Elektronik Sanayi Ve Ticaret A.Ş.",sector:"savunma"},
+  {id:21,ticker:"ATAKP",name:"Atakey Patates Gıda Sanayi Ve Ticaret A.Ş.",sector:"gıda"},
+  {id:22,ticker:"ATATP",name:"Atp Yazılım Ve Teknoloji A.Ş.",sector:"teknoloji"},
+  {id:23,ticker:"AVPGY",name:"Avrupakent Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:24,ticker:"AYEN",name:"Ayen Enerji A.Ş.",sector:"enerji"},
+  {id:25,ticker:"BAHKM",name:"Bahadır Kimya Sanayi Ve Ticaret A.Ş.",sector:"kimya"},
+  {id:26,ticker:"BAKAB",name:"Bak Ambalaj Sanayi Ve Ticaret A.Ş.",sector:"ambalaj"},
+  {id:27,ticker:"BASGZ",name:"Başkent Doğalgaz Dağıtım Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"enerji"},
+  {id:28,ticker:"BAYRK",name:"Bayrak Ebt Taban Sanayi ve Ticaret A.Ş.",sector:"tekstil"},
+  {id:29,ticker:"BEGYO",name:"Batı Ege Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:30,ticker:"BERA",name:"Bera Holding A.Ş.",sector:"holding"},
+  {id:31,ticker:"BESTE",name:"Best Brands Grup Enerji Yatırım A.Ş.",sector:"enerji"},
+  {id:32,ticker:"BIENY",name:"Bien Yapı Ürünleri Sanayi Turizm Ve Ticaret A.Ş.",sector:"inşaat"},
+  {id:33,ticker:"BIMAS",name:"Bim Birleşik Mağazalar A.Ş.",sector:"perakende"},
+  {id:34,ticker:"BINBN",name:"Bin Ulaşım Ve Akıllı Şehir Teknolojileri A.Ş.",sector:"teknoloji"},
+  {id:35,ticker:"BINHO",name:"1000 Yatırımlar Holding A.Ş.",sector:"holding"},
+  {id:36,ticker:"BMSTL",name:"Bms Birleşik Metal Sanayi Ve Ticaret A.Ş.",sector:"metal"},
+  {id:37,ticker:"BORSK",name:"Bor Şeker A.Ş.",sector:"gıda"},
+  {id:38,ticker:"BOSSA",name:"Bossa Ticaret Ve Sanayi İşletmeleri T.A.Ş.",sector:"tekstil"},
+  {id:39,ticker:"BRISA",name:"Brisa Bridgestone Sabancı Lastik Sanayi Ve Ticaret A.Ş.",sector:"otomotiv"},
+  {id:40,ticker:"BRKSN",name:"Berkosan Yalıtım Ve Tecrit Maddeleri Üretim Ve Ticaret A.Ş.",sector:"inşaat"},
+  {id:41,ticker:"BRLSM",name:"Birleşim Mühendislik Isıtma Soğutma Havalandırma Sanayi Ve Ticaret A.Ş.",sector:"inşaat"},
+  {id:42,ticker:"BSOKE",name:"Batısöke Söke Çimento Sanayii T.A.Ş.",sector:"çimento"},
+  {id:43,ticker:"BUCIM",name:"Bursa Çimento Fabrikası A.Ş.",sector:"çimento"},
+  {id:44,ticker:"BURCE",name:"Burçelik Bursa Çelik Döküm Sanayii A.Ş.",sector:"çelik"},
+  {id:45,ticker:"BURVA",name:"Burçelik Vana Sanayi Ve Ticaret A.Ş.",sector:"çelik"},
+  {id:46,ticker:"BYDNR",name:"Baydöner Restoranları A.Ş.",sector:"gıda"},
+  {id:47,ticker:"CANTE",name:"Çan2 Termik A.Ş.",sector:"enerji"},
+  {id:48,ticker:"CATES",name:"Çates Elektrik Üretim A.Ş.",sector:"enerji"},
+  {id:49,ticker:"CELHA",name:"Çelik Halat Ve Tel Sanayii A.Ş.",sector:"çelik"},
+  {id:50,ticker:"CEMTS",name:"Çemtaş Çelik Makina Sanayi Ve Ticaret A.Ş.",sector:"çelik"},
+  {id:51,ticker:"CEMZY",name:"Cem Zeytin A.Ş.",sector:"gıda"},
+  {id:52,ticker:"CIMSA",name:"Çimsa Çimento Sanayi Ve Ticaret A.Ş.",sector:"çimento"},
+  {id:53,ticker:"CMBTN",name:"Çimbeton Hazırbeton Ve Prefabrik Yapı Elemanları Sanayi Ve Ticaret A.Ş.",sector:"çimento"},
+  {id:54,ticker:"COSMO",name:"Cosmos Yatırım Holding A.Ş.",sector:"holding"},
+  {id:55,ticker:"CVKMD",name:"Cvk Maden İşletmeleri Sanayi Ve Ticaret A.Ş.",sector:"madencilik"},
+  {id:56,ticker:"CWENE",name:"Cw Enerji Mühendislik Ticaret Ve Sanayi A.Ş.",sector:"enerji"},
+  {id:57,ticker:"DAPGM",name:"Dap Gayrimenkul Geliştirme A.Ş.",sector:"gayrimenkul"},
+  {id:58,ticker:"DARDL",name:"Dardanel Önentaş Gıda Sanayi A.Ş.",sector:"gıda"},
+  {id:59,ticker:"DCTTR",name:"Dct Trading Dış Ticaret A.Ş.",sector:"ticaret"},
+  {id:60,ticker:"DENGE",name:"Denge Yatırım Holding A.Ş.",sector:"holding"},
+  {id:61,ticker:"DESPC",name:"Despec Bilgisayar Pazarlama Ve Ticaret A.Ş.",sector:"teknoloji"},
+  {id:62,ticker:"DGATE",name:"Datagate Bilgisayar Malzemeleri Ticaret A.Ş.",sector:"teknoloji"},
+  {id:63,ticker:"DITAS",name:"Ditaş Doğan Yedek Parça İmalat ve Teknik A.Ş.",sector:"otomotiv"},
+  {id:64,ticker:"DMSAS",name:"Demisaş Döküm Emaye Mamülleri Sanayi A.Ş.",sector:"metal"},
+  {id:65,ticker:"DNISI",name:"Dinamik Isı Makina Yalıtım Malzemeleri Sanayi ve Ticaret A.Ş.",sector:"inşaat"},
+  {id:66,ticker:"DOFER",name:"Dofer Yapı Malzemeleri Sanayi Ve Ticaret A.Ş.",sector:"inşaat"},
+  {id:67,ticker:"DOFRB",name:"Dof Robotik Sanayi A.Ş.",sector:"teknoloji"},
+  {id:68,ticker:"DOGUB",name:"Doğusan Boru Sanayi Ve Ticaret A.Ş.",sector:"metal"},
+  {id:69,ticker:"DYOBY",name:"Dyo Boya Fabrikaları Sanayi Ve Ticaret A.Ş.",sector:"kimya"},
+  {id:70,ticker:"EBEBK",name:"Ebebek Mağazacılık A.Ş.",sector:"perakende"},
+  {id:71,ticker:"EDATA",name:"E-Data Teknoloji Pazarlama A.Ş.",sector:"teknoloji"},
+  {id:72,ticker:"EDIP",name:"Edip Gayrimenkul Yatırım Sanayi Ve Ticaret A.Ş.",sector:"gayrimenkul"},
+  {id:73,ticker:"EFOR",name:"Efor Yatırım Sanayi Ticaret A.Ş.",sector:"holding"},
+  {id:74,ticker:"EGEPO",name:"Nasmed Özel Sağlık Hizmetleri Ticaret A.Ş.",sector:"sağlık"},
+  {id:75,ticker:"EGGUB",name:"Ege Gübre Sanayii A.Ş.",sector:"kimya"},
+  {id:76,ticker:"EGPRO",name:"Ege Profil Ticaret Ve Sanayi A.Ş.",sector:"inşaat"},
+  {id:77,ticker:"EKGYO",name:"Emlak Konut Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:78,ticker:"EKSUN",name:"Eksun Gıda Tarım Sanayi Ve Ticaret A.Ş.",sector:"gıda"},
+  {id:79,ticker:"ELITE",name:"Elite Naturel Organik Gıda Sanayi Ve Ticaret A.Ş.",sector:"gıda"},
+  {id:80,ticker:"EMPAE",name:"Empa Elektronik Sanayi ve Ticaret A.Ş.",sector:"teknoloji"},
+  {id:81,ticker:"ENJSA",name:"Enerjisa Enerji A.Ş.",sector:"enerji"},
+  {id:82,ticker:"EREGL",name:"Ereğli Demir Ve Çelik Fabrikaları T.A.Ş.",sector:"çelik"},
+  {id:83,ticker:"ESCOM",name:"Escort Teknoloji Yatırım A.Ş.",sector:"teknoloji"},
+  {id:84,ticker:"EUPWR",name:"Europower Enerji Ve Otomasyon Teknolojileri Sanayi Ticaret A.Ş.",sector:"enerji"},
+  {id:85,ticker:"EYGYO",name:"Eyg Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:86,ticker:"FADE",name:"Fade Gıda Yatırım Sanayi Ticaret A.Ş.",sector:"gıda"},
+  {id:87,ticker:"FONET",name:"Fonet Bilgi Teknolojileri A.Ş.",sector:"teknoloji"},
+  {id:88,ticker:"FORMT",name:"Formet Metal Ve Cam Sanayi A.Ş.",sector:"metal"},
+  {id:89,ticker:"FORTE",name:"Forte Bilgi İletişim Teknolojileri Ve Savunma Sanayi A.Ş.",sector:"savunma"},
+  {id:90,ticker:"FRMPL",name:"Formül Plastik ve Metal Sanayi A.Ş.",sector:"metal"},
+  {id:91,ticker:"FZLGY",name:"Fuzul Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:92,ticker:"GEDZA",name:"Gediz Ambalaj Sanayi Ve Ticaret A.Ş.",sector:"ambalaj"},
+  {id:93,ticker:"GENIL",name:"Gen İlaç Ve Sağlık Ürünleri Sanayi Ve Ticaret A.Ş.",sector:"sağlık"},
+  {id:94,ticker:"GENKM",name:"Gentaş Kimya Sanayi ve Ticaret Pazarlama A.Ş.",sector:"kimya"},
+  {id:95,ticker:"GENTS",name:"Gentaş Dekoratif Yüzeyler Sanayi Ve Ticaret A.Ş.",sector:"inşaat"},
+  {id:96,ticker:"GEREL",name:"Gersan Elektrik Ticaret Ve Sanayi A.Ş.",sector:"enerji"},
+  {id:97,ticker:"GESAN",name:"Girişim Elektrik Sanayi Taahhüt Ve Ticaret A.Ş.",sector:"enerji"},
+  {id:98,ticker:"GLRMK",name:"Gülermak Ağır Sanayi İnşaat Ve Taahhüt A.Ş.",sector:"inşaat"},
+  {id:99,ticker:"GMTAS",name:"Gimat Mağazacılık Sanayi ve Ticaret A.Ş.",sector:"perakende"},
+  {id:100,ticker:"GOKNR",name:"Göknur Gıda Maddeleri Enerji İmalat İthalat İhracat Ticaret Ve Sanayi A.Ş.",sector:"gıda"},
+  {id:101,ticker:"GOLTS",name:"Göltaş Göller Bölgesi Çimento Sanayi Ve Ticaret A.Ş.",sector:"çimento"},
+  {id:102,ticker:"GOODY",name:"Goodyear Lastikleri T.A.Ş.",sector:"otomotiv"},
+  {id:103,ticker:"GRSEL",name:"Gür-Sel Turizm Taşımacılık Ve Servis Ticaret A.Ş.",sector:"turizm"},
+  {id:104,ticker:"GRTHO",name:"Graınturk Holding A.Ş.",sector:"holding"},
+  {id:105,ticker:"GUBRF",name:"Gübre Fabrikaları T.A.Ş.",sector:"kimya"},
+  {id:106,ticker:"GUNDG",name:"Gündoğdu Gıda Süt Ürünleri Sanayi Ve Dış Ticaret A.Ş.",sector:"gıda"},
+  {id:107,ticker:"HATSN",name:"Hat-San Gemi İnşaa Bakım Onarım Deniz Nakliyat Sanayi Ve Ticaret A.Ş.",sector:"ulaşım"},
+  {id:108,ticker:"HKTM",name:"Hidropar Hareket Kontrol Teknolojileri Merkezi Sanayi Ve Ticaret A.Ş.",sector:"teknoloji"},
+  {id:109,ticker:"HOROZ",name:"Horoz Lojistik Kargo Hizmetleri Ve Ticaret A.Ş.",sector:"ulaşım"},
+  {id:110,ticker:"HRKET",name:"Hareket Proje Taşımacılığı Ve Yük Mühendisliği A.Ş.",sector:"ulaşım"},
+  {id:111,ticker:"IDGYO",name:"İdealist Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:112,ticker:"IHEVA",name:"İhlas Ev Aletleri İmalat Sanayi Ve Ticaret A.Ş.",sector:"teknoloji"},
+  {id:113,ticker:"IHLAS",name:"İhlas Holding A.Ş.",sector:"holding"},
+  {id:114,ticker:"IHLGM",name:"İhlas Gayrimenkul Proje Geliştirme Ve Ticaret A.Ş.",sector:"gayrimenkul"},
+  {id:115,ticker:"IHYAY",name:"İhlas Yayın Holding A.Ş.",sector:"medya"},
+  {id:116,ticker:"IMASM",name:"İmaş Makina Sanayi A.Ş.",sector:"makina"},
+  {id:117,ticker:"INGRM",name:"Ingram Micro Bilişim Sistemleri A.Ş.",sector:"teknoloji"},
+  {id:118,ticker:"INTEM",name:"İntema İnşaat Ve Tesisat Malzemeleri Yatırım Ve Pazarlama A.Ş.",sector:"inşaat"},
+  {id:119,ticker:"ISDMR",name:"İskenderun Demir Ve Çelik A.Ş.",sector:"çelik"},
+  {id:120,ticker:"IZFAS",name:"İzmir Fırça Sanayi Ve Ticaret A.Ş.",sector:"diğer"},
+  {id:121,ticker:"IZINV",name:"İz Yatırım Holding A.Ş.",sector:"holding"},
+  {id:122,ticker:"JANTS",name:"Jantsa Jant Sanayi Ve Ticaret A.Ş.",sector:"otomotiv"},
+  {id:123,ticker:"KARSN",name:"Karsan Otomotiv Sanayii Ve Ticaret A.Ş.",sector:"otomotiv"},
+  {id:124,ticker:"KATMR",name:"Katmerciler Araç Üstü Ekipman Sanayi Ve Ticaret A.Ş.",sector:"savunma"},
+  {id:125,ticker:"KBORU",name:"Kuzey Boru A.Ş.",sector:"metal"},
+  {id:126,ticker:"KCAER",name:"Kocaer Çelik Sanayi Ve Ticaret A.Ş.",sector:"çelik"},
+  {id:127,ticker:"KIMMR",name:"Ersan Alışveriş Hizmetleri Ve Gıda Sanayi Ticaret A.Ş.",sector:"perakende"},
+  {id:128,ticker:"KLSER",name:"Kaleseramik, Çanakkale Kalebodur Seramik Sanayi A.Ş.",sector:"inşaat"},
+  {id:129,ticker:"KLSYN",name:"Koleksiyon Mobilya Sanayi A.Ş.",sector:"diğer"},
+  {id:130,ticker:"KMPUR",name:"Kimteks Poliüretan Sanayi ve Ticaret A.Ş.",sector:"kimya"},
+  {id:131,ticker:"KNFRT",name:"Konfrut Tarım A.Ş.",sector:"gıda"},
+  {id:132,ticker:"KOCMT",name:"Koç Metalurji A.Ş.",sector:"metal"},
+  {id:133,ticker:"KONKA",name:"Konya Kağıt Sanayi Ve Ticaret A.Ş.",sector:"ambalaj"},
+  {id:134,ticker:"KONYA",name:"Konya Çimento Sanayii A.Ş.",sector:"çimento"},
+  {id:135,ticker:"KOPOL",name:"Koza Polyester Sanayi Ve Ticaret A.Ş.",sector:"tekstil"},
+  {id:136,ticker:"KOTON",name:"Koton Mağazacılık Tekstil Sanayi Ve Ticaret A.Ş.",sector:"tekstil"},
+  {id:137,ticker:"KRDMA",name:"Kardemir Karabük Demir Çelik Sanayi Ve Ticaret A.Ş.",sector:"çelik"},
+  {id:138,ticker:"KRDMB",name:"Kardemir Karabük Demir Çelik Sanayi Ve Ticaret A.Ş.",sector:"çelik"},
+  {id:139,ticker:"KRDMD",name:"Kardemir Karabük Demir Çelik Sanayi Ve Ticaret A.Ş.",sector:"çelik"},
+  {id:140,ticker:"KRGYO",name:"Körfez Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:141,ticker:"KRONT",name:"Kron Teknoloji A.Ş.",sector:"teknoloji"},
+  {id:142,ticker:"KRPLS",name:"Koroplast Temizlik Ambalaj Ürünleri Sanayi Ve Dış Ticaret A.Ş.",sector:"ambalaj"},
+  {id:143,ticker:"KRSTL",name:"Kristal Kola Ve Meşrubat Sanayi Ticaret A.Ş.",sector:"gıda"},
+  {id:144,ticker:"KRVGD",name:"Kervan Gıda Sanayi Ve Ticaret A.Ş.",sector:"gıda"},
+  {id:145,ticker:"KTLEV",name:"Katılımevim Tasarruf Finansman A.Ş.",sector:"finans"},
+  {id:146,ticker:"KUTPO",name:"Kütahya Porselen Sanayi A.Ş.",sector:"diğer"},
+  {id:147,ticker:"KZBGY",name:"Kızılbük Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:148,ticker:"LKMNH",name:"Lokman Hekim Engürüsağ Sağlık Turizm Eğitim Hizmetleri Ve İnşaat Taahhüt A.Ş.",sector:"sağlık"},
+  {id:149,ticker:"LMKDC",name:"Limak Doğu Anadolu Çimento Sanayi Ve Ticaret A.Ş.",sector:"çimento"},
+  {id:150,ticker:"LOGO",name:"Logo Yazılım Sanayi Ve Ticaret A.Ş.",sector:"teknoloji"},
+  {id:151,ticker:"LXGYO",name:"Luxera Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:152,ticker:"MAGEN",name:"Margün Enerji Üretim Sanayi Ve Ticaret A.Ş.",sector:"enerji"},
+  {id:153,ticker:"MAKIM",name:"Makim Makina Teknolojileri Sanayi Ve Ticaret A.Ş.",sector:"makina"},
+  {id:154,ticker:"MARBL",name:"Tureks Turunç Madencilik İç Ve Dış Ticaret A.Ş.",sector:"madencilik"},
+  {id:155,ticker:"MAVI",name:"Mavi Giyim Sanayi Ve Ticaret A.Ş.",sector:"tekstil"},
+  {id:156,ticker:"MCARD",name:"Metropal Kurumsal Hizmetler A.Ş.",sector:"hizmet"},
+  {id:157,ticker:"MEDTR",name:"Meditera Tıbbi Malzeme Sanayi Ve Ticaret A.Ş.",sector:"sağlık"},
+  {id:158,ticker:"MEGMT",name:"Mega Metal Sanayi ve Ticaret A.Ş.",sector:"metal"},
+  {id:159,ticker:"MEKAG",name:"Meka Global Makine İmalat Sanayi Ve Ticaret A.Ş.",sector:"makina"},
+  {id:160,ticker:"MERCN",name:"Mercan Kimya Sanayi Ve Ticaret A.Ş.",sector:"kimya"},
+  {id:161,ticker:"MERKO",name:"Merko Gıda Sanayi ve Ticaret A.Ş.",sector:"gıda"},
+  {id:162,ticker:"MEYSU",name:"Meysu Gıda Sanayi ve Ticaret A.Ş.",sector:"gıda"},
+  {id:163,ticker:"MNDTR",name:"Mondi Turkey Oluklu Mukavva Kağıt Ve Ambalaj Sanayi A.Ş.",sector:"ambalaj"},
+  {id:164,ticker:"MOBTL",name:"Mobiltel İletişim Hizmetleri Sanayi Ve Ticaret A.Ş.",sector:"teknoloji"},
+  {id:165,ticker:"MOPAS",name:"Mopaş Marketcilik Gıda Sanayi ve Ticaret A.Ş.",sector:"perakende"},
+  {id:166,ticker:"MPARK",name:"Mlp Sağlık Hizmetleri A.Ş.",sector:"sağlık"},
+  {id:167,ticker:"NETAS",name:"Netaş Telekomünikasyon A.Ş.",sector:"teknoloji"},
+  {id:168,ticker:"NETCD",name:"Netcad Yazılım A.Ş.",sector:"teknoloji"},
+  {id:169,ticker:"NTGAZ",name:"Naturelgaz Sanayi Ve Ticaret A.Ş.",sector:"enerji"},
+  {id:170,ticker:"OBAMS",name:"Oba Makarnacılık Sanayi Ve Ticaret A.Ş.",sector:"gıda"},
+  {id:171,ticker:"OBASE",name:"Obase Bilgisayar Ve Danışmanlık Hizmetleri Ticaret A.Ş.",sector:"teknoloji"},
+  {id:172,ticker:"ONCSM",name:"Oncosem Onkolojik Sistemler Sanayi Ve Ticaret A.Ş.",sector:"sağlık"},
+  {id:173,ticker:"ORGE",name:"Orge Enerji Elektrik Taahhüt A.Ş.",sector:"enerji"},
+  {id:174,ticker:"OSTIM",name:"Ostim Endüstriyel Yatırımlar Ve İşletme A.Ş.",sector:"holding"},
+  {id:175,ticker:"OZATD",name:"Özata Denizcilik Sanayi ve Ticaret A.Ş.",sector:"ulaşım"},
+  {id:176,ticker:"OZGYO",name:"Özderici Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:177,ticker:"OZRDN",name:"Özerden Ambalaj Sanayi A.Ş.",sector:"ambalaj"},
+  {id:178,ticker:"OZYSR",name:"Özyaşar Tel Ve Galvanizleme Sanayi A.Ş.",sector:"metal"},
+  {id:179,ticker:"PAGYO",name:"Panora Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:180,ticker:"PARSN",name:"Parsan Makina Parçaları Sanayii A.Ş.",sector:"makina"},
+  {id:181,ticker:"PASEU",name:"Pasifik Eurasia Lojistik Dış Ticaret A.Ş.",sector:"ulaşım"},
+  {id:182,ticker:"PENGD",name:"Penguen Gıda Sanayi A.Ş.",sector:"gıda"},
+  {id:183,ticker:"PENTA",name:"Penta Teknoloji Ürünleri Dağıtım Ticaret A.Ş.",sector:"teknoloji"},
+  {id:184,ticker:"PETKM",name:"Petkim Petrokimya Holding A.Ş.",sector:"kimya"},
+  {id:185,ticker:"PKART",name:"Plastikkart Akıllı Kart İletişim Sistemleri Sanayi Ve Ticaret A.Ş.",sector:"teknoloji"},
+  {id:186,ticker:"PLTUR",name:"Platform Turizm Taşımacılık Gıda İnşaat Temizlik Hizmetleri Sanayi Ve Ticaret A.Ş.",sector:"turizm"},
+  {id:187,ticker:"PNSUT",name:"Pınar Süt Mamülleri Sanayi A.Ş.",sector:"gıda"},
+  {id:188,ticker:"POLHO",name:"Polisan Holding A.Ş.",sector:"holding"},
+  {id:189,ticker:"PRKME",name:"Park Elektrik Üretim Madencilik Sanayi ve Ticaret A.Ş.",sector:"madencilik"},
+  {id:190,ticker:"QUAGR",name:"Qua Granıte Hayal Yapı Ve Ürünleri Sanayi Ticaret A.Ş.",sector:"inşaat"},
+  {id:191,ticker:"RALYH",name:"Ral Yatırım Holding A.Ş.",sector:"holding"},
+  {id:192,ticker:"RGYAS",name:"Rönesans Gayrimenkul Yatırım A.Ş.",sector:"gayrimenkul"},
+  {id:193,ticker:"RNPOL",name:"Rainbow Polikarbonat Sanayi Ticaret A.Ş.",sector:"kimya"},
+  {id:194,ticker:"RODRG",name:"Rodrigo Tekstil Sanayi Ve Ticaret A.Ş.",sector:"tekstil"},
+  {id:195,ticker:"RUBNS",name:"Rubenis Tekstil Sanayi Ticaret A.Ş.",sector:"tekstil"},
+  {id:196,ticker:"SAFKR",name:"Safkar Ege Soğutmacılık Klima Soğuk Hava Tesisleri İhracat İthalat Sanayi Ve Ticaret A.Ş.",sector:"makina"},
+  {id:197,ticker:"SAMAT",name:"Saray Matbaacılık Kağıtçılık Kırtasiyecilik Ticaret Ve Sanayi A.Ş.",sector:"ambalaj"},
+  {id:198,ticker:"SANEL",name:"San-El Mühendislik Elektrik Taahhüt Sanayi Ve Ticaret A.Ş.",sector:"enerji"},
+  {id:199,ticker:"SANKO",name:"Sanko Pazarlama İthalat İhracat A.Ş.",sector:"ticaret"},
+  {id:200,ticker:"SARKY",name:"Sarkuysan Elektrolitik Bakır Sanayi Ve Ticaret A.Ş.",sector:"metal"},
+  {id:201,ticker:"SAYAS",name:"Say Yenilenebilir Enerji Ekipmanları Sanayi Ve Ticaret A.Ş.",sector:"enerji"},
+  {id:202,ticker:"SDTTR",name:"SDT Uzay ve Savunma Teknolojileri A.Ş.",sector:"savunma"},
+  {id:203,ticker:"SEKUR",name:"Sekuro Plastik Ambalaj Sanayi A.Ş.",sector:"ambalaj"},
+  {id:204,ticker:"SELEC",name:"Selçuk Ecza Deposu Ticaret Ve Sanayi A.Ş.",sector:"sağlık"},
+  {id:205,ticker:"SELVA",name:"Selva Gıda Sanayi A.Ş.",sector:"gıda"},
+  {id:206,ticker:"SILVR",name:"Silverline Endüstri Ve Ticaret A.Ş.",sector:"diğer"},
+  {id:207,ticker:"SMART",name:"Smartiks Yazılım A.Ş.",sector:"teknoloji"},
+  {id:208,ticker:"SNGYO",name:"Sinpaş Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:209,ticker:"SNICA",name:"Sanica Isı Sanayi A.Ş.",sector:"inşaat"},
+  {id:210,ticker:"SOKE",name:"Söke Değirmencilik Sanayi Ve Ticaret A.Ş.",sector:"gıda"},
+  {id:211,ticker:"SRVGY",name:"Servet Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:212,ticker:"SUNTK",name:"Sun Tekstil Sanayi Ve Ticaret A.Ş.",sector:"tekstil"},
+  {id:213,ticker:"SURGY",name:"Sur Tatil Evleri Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+  {id:214,ticker:"SUWEN",name:"Suwen Tekstil Sanayi Pazarlama A.Ş.",sector:"tekstil"},
+  {id:215,ticker:"TARKM",name:"Tarkim Bitki Koruma Sanayi Ve Ticaret A.Ş.",sector:"kimya"},
+  {id:216,ticker:"TEZOL",name:"Europap Tezol Kağıt Sanayi Ve Ticaret A.Ş.",sector:"ambalaj"},
+  {id:217,ticker:"TKFEN",name:"Tekfen Holding A.Ş.",sector:"holding"},
+  {id:218,ticker:"TKNSA",name:"Teknosa İç Ve Dış Ticaret A.Ş.",sector:"perakende"},
+  {id:219,ticker:"TMPOL",name:"Temapol Polimer Plastik ve İnşaat Sanayi Ticaret A.Ş.",sector:"kimya"},
+  {id:220,ticker:"TUCLK",name:"Tuğçelik Alüminyum Ve Metal Mamülleri Sanayi Ve Ticaret A.Ş.",sector:"metal"},
+  {id:221,ticker:"TUKAS",name:"Tukaş Gıda Sanayi Ve Ticaret A.Ş.",sector:"gıda"},
+  {id:222,ticker:"TUPRS",name:"Tüpraş-Türkiye Petrol Rafinerileri A.Ş.",sector:"enerji"},
+  {id:223,ticker:"TUREX",name:"Tureks Turizm Taşımacılık A.Ş.",sector:"turizm"},
+  {id:224,ticker:"TURGG",name:"Türker Proje Gayrimenkul ve Yatırım Geliştirme A.Ş.",sector:"gayrimenkul"},
+  {id:225,ticker:"UCAYM",name:"Üçay Mühendislik Enerji ve İklimlendirme Teknolojileri A.Ş.",sector:"enerji"},
+  {id:226,ticker:"UFUK",name:"Ufuk Yatırım Yönetim ve Gayrimenkul A.Ş.",sector:"gayrimenkul"},
+  {id:227,ticker:"ULUSE",name:"Ulusoy Elektrik İmalat Taahhüt Ve Ticaret A.Ş.",sector:"enerji"},
+  {id:228,ticker:"USAK",name:"Uşak Seramik Sanayi A.Ş.",sector:"inşaat"},
+  {id:229,ticker:"VAKKO",name:"Vakko Tekstil Ve Hazır Giyim Sanayi İşletmeleri A.Ş.",sector:"tekstil"},
+  {id:230,ticker:"VANGD",name:"Vanet Gıda Sanayi İç Ve Dış Ticaret A.Ş.",sector:"gıda"},
+  {id:231,ticker:"YATAS",name:"Yataş Yatak Ve Yorgan Sanayi Ticaret A.Ş.",sector:"perakende"},
+  {id:232,ticker:"YEOTK",name:"Yeo Teknoloji Enerji Ve Endüstri A.Ş.",sector:"enerji"},
+  {id:233,ticker:"YIGIT",name:"Yiğit Akü Malzemeleri Nakliyat Turizm İnşaat Sanayi ve Ticaret A.Ş.",sector:"otomotiv"},
+  {id:234,ticker:"YKSLN",name:"Yükselen Çelik A.Ş.",sector:"çelik"},
+  {id:235,ticker:"YUNSA",name:"Yünsa Yünlü Sanayi Ve Ticaret A.Ş.",sector:"tekstil"},
+  {id:236,ticker:"ZEDUR",name:"Zedur Enerji Elektrik Üretim A.Ş.",sector:"enerji"},
+  {id:237,ticker:"ZERGY",name:"Zeray Gayrimenkul Yatırım Ortaklığı A.Ş.",sector:"gayrimenkul"},
+];
+
+const SECTOR_COLORS = {
+  enerji: '#f59e0b',
+  teknoloji: '#47c8ff',
+  gıda: '#34d399',
+  gayrimenkul: '#a78bfa',
+  çelik: '#94a3b8',
+  çimento: '#fb923c',
+  holding: '#e8ff47',
+  tekstil: '#f472b6',
+  kimya: '#60a5fa',
+  savunma: '#f87171',
+  sağlık: '#2dd4bf',
+  otomotiv: '#facc15',
+  metal: '#a3a3a3',
+  inşaat: '#c084fc',
+  ambalaj: '#86efac',
+  finans: '#38bdf8',
+  perakende: '#fb7185',
+  ulaşım: '#67e8f9',
+  madencilik: '#d4a96a',
+  makina: '#9ca3af',
+  turizm: '#4ade80',
+  medya: '#e879f9',
+  hizmet: '#cbd5e1',
+  ticaret: '#fbbf24',
+  diğer: '#6b7280',
+};
+
+const SECTOR_LABELS = {
+  enerji: 'Enerji', teknoloji: 'Teknoloji', gıda: 'Gıda & İçecek',
+  gayrimenkul: 'Gayrimenkul (GYO)', çelik: 'Demir & Çelik',
+  çimento: 'Çimento', holding: 'Holding', tekstil: 'Tekstil',
+  kimya: 'Kimya', savunma: 'Savunma', sağlık: 'Sağlık',
+  otomotiv: 'Otomotiv', metal: 'Metal', inşaat: 'İnşaat',
+  ambalaj: 'Ambalaj', finans: 'Finans', perakende: 'Perakende',
+  ulaşım: 'Ulaşım & Lojistik', madencilik: 'Madencilik',
+  makina: 'Makina', turizm: 'Turizm', medya: 'Medya',
+  hizmet: 'Hizmet', ticaret: 'Ticaret', diğer: 'Diğer',
+};
+
+// State
+let query = '';
+let activeFilter = 'all';
+
+// DOM
+const searchInput = document.getElementById('searchInput');
+const clearBtn = document.getElementById('clearBtn');
+const stockList = document.getElementById('stockList');
+const filterBar = document.getElementById('filterBar');
+const resultsText = document.getElementById('resultsText');
+const resultsCount = document.getElementById('resultsCount');
+const statShowing = document.getElementById('statShowing');
+const statCategory = document.getElementById('statCategory');
+const totalBadge = document.getElementById('totalBadge');
+
+function normalize(str) {
+  return str.toLowerCase()
+    .replace(/ı/g,'i').replace(/ğ/g,'g').replace(/ü/g,'u')
+    .replace(/ş/g,'s').replace(/ö/g,'o').replace(/ç/g,'c')
+    .replace(/İ/g,'i').replace(/Ğ/g,'g').replace(/Ü/g,'u')
+    .replace(/Ş/g,'s').replace(/Ö/g,'o').replace(/Ç/g,'c');
+}
+
+function highlight(text, q) {
+  if (!q) return text;
+  const norm = normalize(text);
+  const normQ = normalize(q);
+  const idx = norm.indexOf(normQ);
+  if (idx === -1) return text;
+  return text.slice(0, idx) + '<mark>' + text.slice(idx, idx + q.length) + '</mark>' + text.slice(idx + q.length);
+}
+
+function getFiltered() {
+  let results = STOCKS;
+  if (activeFilter !== 'all') {
+    results = results.filter(s => s.sector === activeFilter);
+  }
+  if (query.trim()) {
+    const q = normalize(query.trim());
+    results = results.filter(s =>
+      normalize(s.ticker).startsWith(q) || normalize(s.name).startsWith(q)
+    );
+  }
+  return results;
+}
+
+function render() {
+  const results = getFiltered();
+  const q = query.trim();
+
+  // Update stats
+  statShowing.textContent = results.length;
+  statCategory.textContent = activeFilter === 'all' ? '—' : (SECTOR_LABELS[activeFilter] || activeFilter);
+
+  // Update info text
+  if (q && activeFilter !== 'all') {
+    resultsText.textContent = `"${q}" · ${SECTOR_LABELS[activeFilter] || activeFilter}`;
+  } else if (q) {
+    resultsText.textContent = `"${q}" araması`;
+  } else if (activeFilter !== 'all') {
+    resultsText.textContent = `${SECTOR_LABELS[activeFilter] || activeFilter} sektörü`;
+  } else {
+    resultsText.textContent = 'Tüm hisseler listeleniyor';
+  }
+  resultsCount.textContent = results.length + ' sonuç';
+
+  if (results.length === 0) {
+    stockList.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">Sonuç bulunamadı</div>
+        <div class="empty-text">Farklı bir arama terimi veya<br/>filtre deneyin.</div>
+      </div>
+    `;
+    return;
+  }
+
+  stockList.innerHTML = results.map((s, i) => {
+    const color = SECTOR_COLORS[s.sector] || '#6b7280';
+    const label = SECTOR_LABELS[s.sector] || s.sector;
+    const nameHL = highlight(s.name, q);
+    const tickerHL = highlight(s.ticker, q);
+    const delay = Math.min(i * 15, 300);
+    return `
+      <div class="card" style="animation-delay:${delay}ms">
+        <span class="card-rank">${s.id}</span>
+        <div class="card-ticker-wrap">
+          <span class="card-ticker">${tickerHL}</span>
+        </div>
+        <div class="card-body">
+          <div class="card-name">${nameHL}</div>
+          <div class="sector-tag">
+            <span class="sector-dot" style="background:${color}"></span>
+            ${label}
+          </div>
+        </div>
+        <svg class="card-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+      </div>
+    `;
+  }).join('');
+}
+
+// Sound logic
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSuccessSound() {
+  try {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+    
+    gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.1);
+  } catch (e) {}
+}
+
+// Search
+searchInput.addEventListener('input', (e) => {
+  const oldQuery = query;
+  query = e.target.value;
+  clearBtn.classList.toggle('visible', query.length > 0);
+  render();
+
+  if (query.trim().length > 0 && query !== oldQuery && getFiltered().length === 1) {
+    playSuccessSound();
+  }
+});
+
+clearBtn.addEventListener('click', () => {
+  query = '';
+  searchInput.value = '';
+  clearBtn.classList.remove('visible');
+  searchInput.focus();
+  render();
+});
+
+// Filter
+filterBar.addEventListener('click', (e) => {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  filterBar.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeFilter = btn.dataset.filter;
+  render();
+});
+
+// Initial render
+render();
+</script>
+</body>
+</html>
